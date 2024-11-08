@@ -1,0 +1,94 @@
+import math
+import numpy as np
+from matplotlib import pyplot as plt
+from matplotlib.patches import Rectangle
+
+theta1 = 20     # Vinkel mellom positiv x-akse og "overarm" i grader
+l1 = 60        # Lengde til overarm (f. eks. i meter)
+theta2 = -30   # Vinkel mellom overarm og underarm i grader
+l2 = 50        # Lengde til underarm (bruk samme lengde-enhet som for l1).
+
+def M_rotasjon2D(theta):
+# Funksjon som definerer en homogen rotasjonsmatrise (3x3) for to romlige dimensjoner.
+# I såkalte homogene koordinater bruker vi en ekstra dimensjon (slik at en homogen 3x3-matrise beskriver
+# en tranformasjon i to romlige dimensjoner).
+# Den ekstra koordinaten gjør det bl.a. mulig å beskrive forflytning ved matrisemultiplikasjon.
+# Theta skal oppgis i grader.
+    c = np.cos(theta*np.pi/180)
+    s = np.sin(theta*np.pi/180)
+    return np.array([[c, -s, 0], [s, c, 0], [0, 0, 1]])
+
+def M_translasjon2D(x,y):
+# Homogen translasjonsmatrise (3x3) for to romlige dimensjoner.
+    return np.array([[1, 0, x], [0, 1, y], [0, 0, 1]])
+
+def konkatener(Mliste):
+# Funksjon som multipliserer alle matrisene i Mliste. Mliste er altså en liste av homogene
+# transformasjonsmatriser (bortsatt fra posA som er en homogen kolonnevektor - se nederst)
+    svar = 1
+    for M in reversed(Mliste):
+        svar = np.dot(M, svar)
+    return svar
+
+# Utregning av leddenes posisjon:
+
+# Definerer først de elementære transformasjonsmatrisene:
+R1 = M_rotasjon2D(theta1)
+T1 = M_translasjon2D(l1,0)
+R2 = M_rotasjon2D(theta2)
+T2 = M_translasjon2D(l2,0)
+
+posA = [[0],[0],[1]]; #Homogen kolonnevektor for origo i to romlige koordinater (d.v.s. (0.0)).
+posB = konkatener([R1,T1,posA]); # Endepunktet til overarmen regnes ut ved å først translere origo
+#over en avstand l1 langs x-aksen og så å rotere over theta1 grader om origo.
+posC = konkatener([R1,T1,R2,T2,posA]); # Endepunktet til underarmen regnes ut ved først å anvende
+# translasjonsmatrisen T2 på origo, så rotasjonsmatrisen R2, så T1 og til slutt R1.
+
+print("Endepunkt overarm: (x_over,y_over) = \n", posB[:-1], "\n")
+print("Endepunkt underarm: (x_under,y_under)= \n", posC[:-1], "\n")
+
+# Endepunktet til underarmen kan også regnes direkte
+# ved hjelp av formlene i prosjektoppgaven:
+xend = l1*np.cos(theta1/180*np.pi)+l2*np.cos((theta1+theta2)/180*np.pi)
+yend = l1*np.sin(theta1/180*np.pi)+l2*np.sin((theta1+theta2)/180*np.pi)
+
+print("Endepunkt underarm: x, y = ", round(xend,3), ",", round(yend,3), "\n")
+
+# Visualisering av robotarm for valgte innstillinger
+fig, ax = plt.subplots()
+ax.set_xlabel('x') 
+ax.set_ylabel('y')
+
+bredde = abs(l1)+abs(l2) # Definer bredden slik at robotarmen alltid vises i sin helhet.
+plt.xlim(-bredde, bredde)   # Set x-axis range 
+plt.ylim(-abs(l2), bredde)  # Set y-axis range
+
+#Tegn robotarmen:
+plt.arrow(posA[0][0], posA[1][0], posB[0][0]-posA[0][0], posB[1][0]-posA[1][0], head_width=0.02*bredde, color='b');
+plt.arrow(posB[0][0], posB[1][0], posC[0][0]-posB[0][0], posC[1][0]-posB[1][0], head_width=0.02*bredde, color='r');
+ 
+#Hjelpelinje for å angi vinkel theta_1:
+hjelp1 = [[0.25*np.linalg.norm(posB)],[0],[1]]; #Støttepunkt 1
+plt.plot([0, hjelp1[0][0]], [0, hjelp1[1][0]], linestyle='dashed', color='k')
+
+#Hjelpelinje for å angi vinkel theta_2:
+hjelp2 = posB*1.25; #Støttepunkt 2
+hjelp3 = posB + 0.3*(posC-posB); #Støttepunkt 3
+plt.plot([posB[0][0], hjelp2[0][0]], [posB[1][0], hjelp2[1][0]], linestyle='dashed', color='k')
+
+#Legg til firkant base til robot-armen:
+ax.add_patch(Rectangle((np.linalg.norm(posB)*(-0.1), np.linalg.norm(posB)*(-0.2)), np.linalg.norm(posB)*0.2, np.linalg.norm(posB)*0.2))
+
+# Annotere
+ax.text(0.5*(posA[0][0] + posB[0][0]) + 0.015, 0.5*(posA[1][0] + posB[1][0]) + 0.015, r'$l_1$', fontsize=12)
+ax.text(0.5*(posB[0][0] + posC[0][0]) + 0.015, 0.5*(posB[1][0] + posC[1][0]) + 0.015, r'$l_2$', fontsize=12)
+ax.text(0.5*(hjelp1[0][0] + 0.25*posB[0][0]), 0.5*(hjelp1[1][0] + 0.25*posB[1][0]), r'$\theta_1$', fontsize=12)
+if theta2<0:
+    ax.text(0.5*(hjelp2[0][0] + hjelp3[0][0]), 0.5*(hjelp2[1][0] + hjelp3[1][0]), r'$-\theta_2$', fontsize=12)
+else:
+    ax.text(0.5*(hjelp2[0][0] + hjelp3[0][0]), 0.5*(hjelp2[1][0] + hjelp3[1][0]), r'$\theta_2$', fontsize=12)
+
+ax.text(posC[0][0] + 0, posC[1][0] - 0.1, r'(x,y)', fontsize=12)
+
+
+plt.show()
